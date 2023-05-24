@@ -4,52 +4,70 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Scanner;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 public class Server {
     final ServerSocket serverSocket;
-    final Socket clientSocket;
-    final BufferedReader reader;
-    final PrintWriter writer;
-    final Scanner scanner;
+    Socket clientSocket;
+    BufferedReader reader;
+    PrintWriter writer;
+    private MessageListener messageListener;
 
-    Server() throws IOException {
-        serverSocket = new ServerSocket(5000);
+    Server(int port) throws IOException {
+        serverSocket = new ServerSocket(port);
+    }
+
+    void stop() throws IOException {
+        writer.close();
+        clientSocket.close();
+        serverSocket.close();
+    }
+
+    void start() throws IOException {
         clientSocket = serverSocket.accept();
         writer = new PrintWriter(clientSocket.getOutputStream());
         reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        scanner = new Scanner(System.in);
-
-        Thread sender = new Thread(() -> {
-            String message;
-            while (true) {
-                message = scanner.nextLine();
-                writer.println(message);
-                writer.flush();
-            }
-        });
-        sender.start();
 
         Thread receiver = new Thread(() -> {
             try {
                 String message = reader.readLine();
                 while (message != null) {
-                    System.out.println(message);
+                    notifyListener(message);
                     message = reader.readLine();
                 }
-                System.out.println("Client disconnected");
-                writer.close();
-                clientSocket.close();
-                serverSocket.close();
+                stop();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         });
         receiver.start();
     }
+
+    void sendMessage(String message) {
+        try (ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor()) {
+            scheduledExecutorService.execute(() -> {
+                writer.println(message);
+                writer.flush();
+            });
+        }
+    }
+
+    void addListener(MessageListener listener) {
+        messageListener = listener;
+    }
+
+    private void notifyListener(String message) {
+        if (messageListener != null) messageListener.onMessageReceived(message);
+    }
+
     public static void main(String[] args) {
         try {
-            new Server();
-        } catch (IOException e) {
+            Server server = new Server(5000);
+            WindowServer windowServer = new WindowServer(server);
+            server.addListener(windowServer);
+            server.start();
+        } catch (Throwable e) {
             e.printStackTrace();
         }
     }
