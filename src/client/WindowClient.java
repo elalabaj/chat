@@ -1,6 +1,6 @@
 package client;
 
-import server.MessageListener;
+import common.MessageListener;
 
 import javax.swing.*;
 
@@ -17,7 +17,7 @@ public class WindowClient extends JFrame implements MessageListener {
         this.client = client;
 
         setContentPane(panel);
-        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(300, 500);
         setVisible(true);
         setTitle("Client");
@@ -31,11 +31,11 @@ public class WindowClient extends JFrame implements MessageListener {
         String message = textField.getText();
         client.sendMessage(message);
         textField.setText("");
-        listModel.addElement("Client: " + message);
+        listModel.addElement(message);
     }
 
     @Override
     public void onMessageReceived(String message) {
-        listModel.addElement("Server: " + message);
+        listModel.addElement(message);
     }
 }

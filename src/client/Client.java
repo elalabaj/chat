@@ -1,8 +1,8 @@
 package client;
 
-import server.MessageListener;
-import server.WindowServer;
+import common.MessageListener;
 
+import javax.swing.*;
 import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
@@ -59,6 +59,10 @@ public class Client {
         try {
             Client client = new Client("127.0.0.1", 5000);
             WindowClient windowClient = new WindowClient(client);
+            String username = JOptionPane.showInputDialog(windowClient, "Enter username:", "Username", JOptionPane.QUESTION_MESSAGE);
+            if (username == null) System.exit(-1);
+            windowClient.setTitle(username);
+            client.sendMessage(username);
             client.addListener(windowClient);
         } catch (Throwable e) {
             e.printStackTrace();

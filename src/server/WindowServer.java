@@ -1,5 +1,7 @@
 package server;
 
+import common.MessageListener;
+
 import javax.swing.*;
 
 public class WindowServer extends JFrame implements MessageListener {
@@ -15,7 +17,7 @@ public class WindowServer extends JFrame implements MessageListener {
         this.server = server;
 
         setContentPane(panel);
-        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(300, 500);
         setVisible(true);
         setTitle("Server");
@@ -29,11 +31,11 @@ public class WindowServer extends JFrame implements MessageListener {
         String message = textField.getText();
         server.sendMessage(message);
         textField.setText("");
-        listModel.addElement("Server: " + message);
+        listModel.addElement(message);
     }
 
     @Override
     public void onMessageReceived(String message) {
-        listModel.addElement("Client: " + message);
+        listModel.addElement(message);
     }
 }

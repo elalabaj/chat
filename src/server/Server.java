@@ -1,64 +1,63 @@
 package server;
 
-import java.io.*;
+import common.MessageListener;
+
+import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Scanner;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class Server {
     final ServerSocket serverSocket;
-    Socket clientSocket;
-    BufferedReader reader;
-    PrintWriter writer;
-    private MessageListener messageListener;
+    private MessageListener uiListener;
+    private final Map<Long, ClientThread> threads;
+    private final AtomicLong idCounter = new AtomicLong(0);
 
     Server(int port) throws IOException {
         serverSocket = new ServerSocket(port);
+        threads = new HashMap<>();
     }
 
-    void stop() throws IOException {
-        writer.close();
-        clientSocket.close();
-        serverSocket.close();
-    }
-
-    void start() throws IOException {
-        clientSocket = serverSocket.accept();
-        writer = new PrintWriter(clientSocket.getOutputStream());
-        reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-
-        Thread receiver = new Thread(() -> {
+    void start() {
+        new Thread(() -> {
             try {
-                String message = reader.readLine();
-                while (message != null) {
-                    notifyListener(message);
-                    message = reader.readLine();
+                while (true) {
+                    Socket clientSocket = serverSocket.accept();
+                    long id = idCounter.getAndIncrement();
+                    ClientThread thread = new ClientThread(clientSocket, id, Server.this::onMessage, Server.this::onServerThreadClose);
+                    threads.put(id, thread);
+                    thread.start();
                 }
-                stop();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        });
-        receiver.start();
+        }).start();
     }
 
     void sendMessage(String message) {
-        try (ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor()) {
-            scheduledExecutorService.execute(() -> {
-                writer.println(message);
-                writer.flush();
-            });
-        }
+        threads.forEach((id, thread) -> thread.sendMessage("server", message));
     }
 
     void addListener(MessageListener listener) {
-        messageListener = listener;
+        uiListener = listener;
     }
 
     private void notifyListener(String message) {
-        if (messageListener != null) messageListener.onMessageReceived(message);
+        if (uiListener != null) uiListener.onMessageReceived(message);
+    }
+
+    private void onMessage(long id, String message) {
+        String from = threads.get(id).getUsername();
+        notifyListener(from + "(" + id + "): " + message);
+        threads.values().stream()
+                .filter(clientThread -> clientThread.getId() != id)
+                .forEach(t -> t.sendMessage(from, message));
+    }
+
+    private void onServerThreadClose(long id) {
+        threads.remove(id);
     }
 
     public static void main(String[] args) {
