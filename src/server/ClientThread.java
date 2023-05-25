@@ -7,7 +7,6 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.BiConsumer;
 import java.util.function.LongConsumer;
 
 public class ClientThread extends Thread {
@@ -16,10 +15,10 @@ public class ClientThread extends Thread {
     private final PrintWriter writer;
     private final long id;
     private String username;
-    private final BiConsumer<Long, String> messageConsumer;
+    private final MessageConsumer messageConsumer;
     private final LongConsumer closeConsumer;
     private final ExecutorService executorService;
-    public ClientThread(Socket clientSocket, long id, BiConsumer<Long, String> messageConsumer, LongConsumer closeConsumer) throws IOException {
+    public ClientThread(Socket clientSocket, long id, MessageConsumer messageConsumer, LongConsumer closeConsumer) throws IOException {
         this.clientSocket = clientSocket;
         reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         writer = new PrintWriter(clientSocket.getOutputStream());
@@ -45,11 +44,10 @@ public class ClientThread extends Thread {
         closeConsumer.accept(id);
     }
 
-    public void sendMessage(String from, String message) {
-        System.out.println("ServerThread.sendMessage " + message + " " + currentThread().threadId());
+    public void sendMessage(String from, int group, String message) {
         executorService.execute(() -> {
             try {
-                writer.println(from + ": " + message);
+                writer.println(from + "|" + group + "|" + message);
                 writer.flush();
             } catch (Throwable e) {
                 System.out.println(e.getMessage());
@@ -59,14 +57,17 @@ public class ClientThread extends Thread {
 
     @Override
     public void run() {
-        System.out.println("ServerThread.run() " + currentThread().threadId());
         try {
             String message = reader.readLine();
             while (message != null) {
+                String[] split = message.split("\\|");
+                int group = Integer.parseInt(split[0]);
+                String body = split[1];
                 if (username == null) {
-                    username = message;
+                    username = body;
+                    messageConsumer.accept(id, group, body + " joined");
                 } else {
-                    messageConsumer.accept(id, message);
+                    messageConsumer.accept(id, group, body);
                 }
                 message = reader.readLine();
             }

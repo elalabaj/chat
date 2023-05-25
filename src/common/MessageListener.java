@@ -1,5 +1,6 @@
 package common;
 
+@FunctionalInterface
 public interface MessageListener {
-    public void onMessageReceived(String message);
+    public void onMessageReceived(int group, String message);
 }
